@@ -50,21 +50,17 @@ function handleEvent(m) {
 async function pollLoop() {
   while (true) {
     try {
-      const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 30000);
-      const r = await fetch(BASE + '/poll-events', { signal: ctrl.signal });
-      clearTimeout(to);
+      const r = await fetch(BASE + '/poll-events');
       if (r.ok) {
         const evs = await r.json();
         for (const ev of evs) handleEvent(ev);
       } else {
         console.log('poll status', r.status);
-        await new Promise((res) => setTimeout(res, 3000));
       }
     } catch (e) {
-      // abort/timeout/network — just loop
-      await new Promise((res) => setTimeout(res, 1000));
+      // network hiccup — just loop
     }
+    await new Promise((res) => setTimeout(res, 500));
   }
 }
 

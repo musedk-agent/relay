@@ -56,25 +56,11 @@ const server = http.createServer((req, res) => {
       res.writeHead(200); res.end('ok');
     });
   } else if (req.url === '/poll-events' && req.method === 'GET') {
-    // Agent long-polls for input events
+    // Agent polls for input events (short-poll, GitHub relay dislikes long holds)
     lastAgentHttp = Date.now();
-    if (pendingEvents.length > 0) {
-      const evs = pendingEvents.splice(0);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(evs));
-    } else {
-      // hold up to 25s
-      const to = setTimeout(() => {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('[]');
-      }, 25000);
-      pendingPolls.push({ res, to });
-      req.on('close', () => {
-        clearTimeout(to);
-        const i = pendingPolls.findIndex((p) => p.res === res);
-        if (i >= 0) pendingPolls.splice(i, 1);
-      });
-    }
+    const evs = pendingEvents.splice(0);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(evs));
   } else {
     res.writeHead(404); res.end('nope');
   }
