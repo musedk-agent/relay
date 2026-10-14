@@ -1,1 +1,1 @@
-{"dependencies":{"ws":"^8.18.0"},"description":"WebSocket relay for remote desktop","name":"vnc-relay","version":"1.0.0"}
+{"dependencies":{"https-proxy-agent":"^9.1.0","ws":"^8.22.0"},"description":"WebSocket relay for remote desktop","name":"vnc-relay","version":"1.0.0"}

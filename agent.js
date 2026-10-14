@@ -1,10 +1,15 @@
 // Runs on the VM. Bridges the desktop (screenshots out, xdotool in)
 // to the relay's /agent WebSocket.
 const WebSocket = require('ws');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const { exec } = require('child_process');
 
 const RELAY = process.env.RELAY_URL;
 if (!RELAY) { console.error('Set RELAY_URL'); process.exit(1); }
+
+const proxy = process.env.https_proxy || process.env.HTTPS_PROXY;
+const agent = proxy ? new HttpsProxyAgent(proxy) : undefined;
+if (proxy) console.log('using proxy');
 
 const DISPLAY_ENV = 'DISPLAY=:1';
 let ws = null;
@@ -16,7 +21,7 @@ function shell(cmd, cb) {
 
 function connect() {
   console.log('connecting to', RELAY);
-  ws = new WebSocket(RELAY);
+  ws = new WebSocket(RELAY, { agent });
 
   ws.on('open', () => {
     console.log('agent linked');
