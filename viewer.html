@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Desktop</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  #stage { flex: 1; position: relative; overflow: hidden; touch-action: none; }
+  #screen { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  #bar { display: flex; gap: 6px; padding: 8px; background: #1c1c1c; align-items: center; }
+  #bar input { flex: 1; padding: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #444; background: #2a2a2a; color: #eee; }
+  #bar button { padding: 10px 14px; font-size: 16px; border-radius: 8px; border: 1px solid #444; background: #2a2a2a; color: #eee; }
+  #status { font-size: 12px; color: #888; padding: 0 8px 6px; }
+  #status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f66; margin-right: 4px; }
+  #status.on .dot { background: #4f4; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage"><img id="screen" alt=""></div>
+  <div id="status"><span class="dot"></span><span id="stext">connecting…</span></div>
+  <div id="bar">
+    <input id="typebox" placeholder="Type here, then tap Type" autocomplete="off" autocapitalize="off">
+    <button id="typebtn">Type</button>
+    <button id="enterbtn">⏎</button>
+  </div>
+</div>
+<script>
+const DW = 1280, DH = 800;
+const img = document.getElementById('screen');
+const stext = document.getElementById('stext');
+const statusEl = document.getElementById('status');
+const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+let ws = null;
+
+function setStatus(on, txt) {
+  statusEl.classList.toggle('on', on);
+  stext.textContent = txt;
+}
+
+function connect() {
+  ws = new WebSocket(proto + location.host + '/viewer');
+  ws.onopen = () => setStatus(true, 'connected');
+  ws.onclose = () => { setStatus(false, 'reconnecting…'); setTimeout(connect, 2000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (ev) => {
+    try {
+      const m = JSON.parse(ev.data);
+      if (m.type === 'shot') img.src = 'data:image/jpeg;base64,' + m.data;
+    } catch (e) {}
+  };
+}
+connect();
+
+function deskCoords(cx, cy) {
+  const r = img.getBoundingClientRect();
+  const ia = DW / DH, ra = r.width / r.height;
+  let dw, dh, ox, oy;
+  if (ra > ia) { dh = r.height; dw = dh * ia; ox = (r.width - dw) / 2; oy = 0; }
+  else { dw = r.width; dh = dw / ia; ox = 0; oy = (r.height - dh) / 2; }
+  const x = Math.round((cx - r.left - ox) * (DW / dw));
+  const y = Math.round((cy - r.top - oy) * (DH / dh));
+  return { x: Math.max(0, Math.min(DW - 1, x)), y: Math.max(0, Math.min(DH - 1, y)) };
+}
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+
+let lastMove = 0;
+img.addEventListener('pointermove', (e) => {
+  const now = Date.now();
+  if (now - lastMove < 80) return;
+  lastMove = now;
+  const p = deskCoords(e.clientX, e.clientY);
+  send({ type: 'move', x: p.x, y: p.y });
+});
+img.addEventListener('pointerdown', (e) => {
+  const p = deskCoords(e.clientX, e.clientY);
+  send({ type: 'click', x: p.x, y: p.y, button: e.button === 2 ? 3 : 1 });
+});
+img.addEventListener('contextmenu', (e) => e.preventDefault());
+
+const typebox = document.getElementById('typebox');
+document.getElementById('typebtn').onclick = () => {
+  if (typebox.value) { send({ type: 'type', text: typebox.value }); typebox.value = ''; }
+  typebox.focus();
+};
+document.getElementById('enterbtn').onclick = () => send({ type: 'key', key: 'Return' });
+typebox.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('typebtn').click(); }
+});
+</script>
+</body>
+</html>

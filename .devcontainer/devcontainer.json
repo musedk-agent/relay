@@ -1,0 +1,1 @@
+{"forwardPorts":[8080],"image":"mcr.microsoft.com/devcontainers/universal:2","portsAttributes":{"8080":{"label":"desktop-relay","onAutoForward":"notify"}},"postCreateCommand":"cd /workspaces/relay && npm install && (nohup node server.js > relay.log 2>&1 &)"}
