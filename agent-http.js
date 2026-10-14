@@ -4,6 +4,8 @@ const { exec } = require('child_process');
 
 const BASE = process.env.RELAY_BASE;
 if (!BASE) { console.error('Set RELAY_BASE'); process.exit(1); }
+const PASSWORD = process.env.RELAY_PASSWORD || '';
+const AUTH = 'Basic ' + Buffer.from('agent:' + PASSWORD).toString('base64');
 
 const DISPLAY_ENV = 'DISPLAY=:1';
 
@@ -15,7 +17,7 @@ async function pushShot(b64) {
   try {
     const r = await fetch(BASE + '/push-shot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': AUTH },
       body: JSON.stringify({ type: 'shot', data: b64 }),
     });
     if (!r.ok) console.log('push-shot status', r.status);
@@ -50,7 +52,9 @@ function handleEvent(m) {
 async function pollLoop() {
   while (true) {
     try {
-      const r = await fetch(BASE + '/poll-events');
+      const r = await fetch(BASE + '/poll-events', {
+        headers: { 'Authorization': AUTH },
+      });
       if (r.ok) {
         const evs = await r.json();
         for (const ev of evs) handleEvent(ev);

@@ -4,6 +4,23 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const PORT = 8080;
+const PASSWORD = process.env.RELAY_PASSWORD || '';
+if (!PASSWORD) console.log('WARNING: no RELAY_PASSWORD set, relay is open');
+
+function authed(req) {
+  if (!PASSWORD) return true;
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Basic ')) return false;
+  const creds = Buffer.from(h.slice(6), 'base64').toString('utf8');
+  const pw = creds.includes(':') ? creds.split(':').slice(1).join(':') : creds;
+  return pw === PASSWORD;
+}
+
+function deny(res) {
+  res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="desktop"' });
+  res.end('auth required');
+}
+
 let agent = null;
 let viewer = null;
 let lastAgentHttp = 0;
@@ -27,6 +44,7 @@ function pushEvent(ev) {
 }
 
 const server = http.createServer((req, res) => {
+  if (!authed(req)) { deny(res); return; }
   if (req.url === '/' || req.url === '/index.html') {
     fs.readFile(path.join(__dirname, 'viewer.html'), (err, data) => {
       if (err) { res.writeHead(404); res.end('nope'); return; }
@@ -69,6 +87,7 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws, req) => {
+  if (!authed(req)) { ws.close(4401, 'auth required'); return; }
   const p = (req.url || '').split('?')[0];
   if (p === '/agent') {
     if (agent) agent.close();
